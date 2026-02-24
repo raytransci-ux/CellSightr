@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CellCount</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/styles.css?v=11">
+</head>
+<body>
+<div class="app-layout">
+
+    <!-- ── Top Bar ──────────────────────────────────────────────── -->
+    <header class="top-bar">
+        <div class="top-bar-left">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/>
+                <line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/>
+                <line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/>
+            </svg>
+            <span class="app-title">CellCount</span>
+        </div>
+        <div class="top-bar-center">
+            <input id="experimentName" class="experiment-name" type="text" value="EXP_20260219" spellcheck="false">
+            <span id="sampleBadge" class="sample-badge">0 samples</span>
+        </div>
+        <div class="top-bar-right">
+            <button id="helpBtn" class="icon-btn" title="Keyboard shortcuts (?)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- ── Main Content ─────────────────────────────────────────── -->
+    <main class="main-content">
+
+        <!-- Left Panel: Camera Controls + Canvas -->
+        <div class="canvas-panel">
+            <!-- Camera toolbar -->
+            <div class="camera-bar">
+                <div class="camera-bar-left">
+                    <div class="toolbar-group">
+                        <span id="cameraStatusBadge" class="camera-status-badge disconnected">
+                            <span class="dot"></span> Off
+                        </span>
+                        <button id="cameraStartBtn" class="btn btn-sm btn-primary">Start Camera</button>
+                        <button id="cameraStopBtn" class="btn btn-sm" disabled>Stop</button>
+                    </div>
+                    <div class="divider-v"></div>
+                    <div class="toolbar-group">
+                        <button id="captureBtn" class="btn btn-sm btn-capture" disabled>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4" fill="currentColor"/></svg>
+                            Capture
+                        </button>
+                        <label class="btn btn-sm upload-btn">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            Upload
+                            <input type="file" id="imageUpload" accept="image/*" style="display:none">
+                        </label>
+                    </div>
+                </div>
+                <div class="camera-bar-right">
+                    <span id="canvasStatus" class="canvas-status"></span>
+                    <span id="annotateHint" class="annotate-hint hidden">
+                        L-click: viable &middot; R-click: dead &middot; Shift+click: remove &middot; Z: undo
+                    </span>
+                    <button id="gridOverrideBtn" class="btn btn-sm btn-grid" title="Select grid manually">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+                        Grid
+                    </button>
+                    <div class="annotate-toggle">
+                        <label class="toggle">
+                            <input type="checkbox" id="annotateToggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span class="toggle-label">Annotate</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Viewport -->
+            <div class="viewport-frame">
+                <div class="canvas-container" id="canvasContainer">
+                    <div class="drop-overlay" id="dropOverlay">
+                        <span class="drop-overlay-text">Drop image to analyze</span>
+                    </div>
+                    <div class="canvas-placeholder" id="canvasPlaceholder">
+                        <div class="placeholder-icon">
+                            <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.2">
+                                <circle cx="32" cy="32" r="24" opacity="0.3"/>
+                                <circle cx="32" cy="32" r="12" opacity="0.2"/>
+                                <line x1="32" y1="4" x2="32" y2="16" opacity="0.15"/>
+                                <line x1="32" y1="48" x2="32" y2="60" opacity="0.15"/>
+                                <line x1="4" y1="32" x2="16" y2="32" opacity="0.15"/>
+                                <line x1="48" y1="32" x2="60" y2="32" opacity="0.15"/>
+                            </svg>
+                        </div>
+                        <p>Start camera or drop an image</p>
+                        <span class="hint">Press <kbd>C</kbd> for camera &middot; <kbd>Space</kbd> to capture</span>
+                    </div>
+                    <canvas id="mainCanvas" class="hidden"></canvas>
+                </div>
+                <!-- Shortcut hints (viewport footer) -->
+                <div class="shortcut-strip">
+                    <span><kbd>Space</kbd> Capture</span>
+                    <span><kbd>S</kbd> Save</span>
+                    <span><kbd>E</kbd> Export</span>
+                    <span><kbd>R</kbd> Re-analyze</span>
+                    <span><kbd>?</kbd> Help</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Results + Session -->
+        <div class="control-panel">
+
+            <!-- Results + Viability (combined, compact) -->
+            <div class="card">
+                <div class="card-header" data-collapsible>
+                    <span>Results</span>
+                    <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+                <div class="card-body">
+                    <div class="results-row">
+                        <div class="results-stats">
+                            <div class="stat-tile total">
+                                <div class="stat-label">Total</div>
+                                <div class="stat-value" id="statTotal">--</div>
+                            </div>
+                            <div class="stat-tile viable">
+                                <div class="stat-label">Viable</div>
+                                <div class="stat-value" id="statViable">--</div>
+                            </div>
+                            <div class="stat-tile dead">
+                                <div class="stat-label">Dead</div>
+                                <div class="stat-value" id="statDead">--</div>
+                            </div>
+                        </div>
+                        <div class="results-donut">
+                            <div class="donut-canvas-wrap">
+                                <canvas id="viabilityDonut"></canvas>
+                                <div class="donut-center-text" id="donutCenterText">--</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="results-meta">
+                        <div class="concentration-row">
+                            <span class="concentration-label">Conc.</span>
+                            <span class="concentration-value" id="statConc">N/A</span>
+                        </div>
+                        <span id="inferenceTime" class="inference-time"></span>
+                    </div>
+                    <div class="results-params">
+                        <div class="param-chip">
+                            <span class="param-label">Dilution</span>
+                            <input type="number" id="mainDilution" value="1" min="1" step="1" class="param-input">
+                        </div>
+                        <label class="param-chip param-toggle" for="mainTrypanBlue">
+                            <input type="checkbox" id="mainTrypanBlue" checked>
+                            <span class="param-check"></span>
+                            <span class="param-label">Trypan blue</span>
+                        </label>
+                        <div class="param-chip param-conf">
+                            <span class="param-label">Conf.</span>
+                            <button id="confDown" class="conf-step-btn" title="Decrease confidence">&minus;</button>
+                            <span id="confValue" class="param-value conf-value">25%</span>
+                            <button id="confUp" class="conf-step-btn" title="Increase confidence">&plus;</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active Sample Group -->
+            <div class="sample-group-bar">
+                <input id="activeSampleName" class="sample-name-input" type="text" value="Sample 001" spellcheck="false" placeholder="Sample name">
+                <button id="newSampleGroupBtn" class="btn btn-sm" title="Start new sample group (N)">
+                    + New Sample
+                </button>
+            </div>
+
+            <!-- Session Samples (with thumbnails) -->
+            <div class="card card-grow">
+                <div class="card-header" data-collapsible>
+                    <span>Session Samples</span>
+                    <span id="imageCountBadge" class="image-count-badge">0 images saved</span>
+                </div>
+                <div class="card-body card-body-fill">
+                    <div class="samples-scroll" id="samplesContainer">
+                        <div class="no-samples" id="noSamplesMsg">
+                            No samples yet. Capture or upload an image to begin.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comparison Chart -->
+            <div class="card">
+                <div class="card-header" data-collapsible>
+                    <span>Comparison</span>
+                    <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="height:100px">
+                        <canvas id="comparisonBar"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="action-row">
+                <button id="saveSampleBtn" class="btn btn-success" disabled>
+                    Save <kbd>S</kbd>
+                </button>
+                <div class="export-dropdown">
+                    <button id="exportBtn" class="btn">
+                        Export <kbd>E</kbd>
+                    </button>
+                    <div class="export-menu" id="exportMenu">
+                        <button id="exportCsvBtn" class="export-menu-item">Export CSV</button>
+                        <button id="exportZipBtn" class="export-menu-item">Download All (ZIP)</button>
+                        <button id="exportImageBtn" class="export-menu-item">Save Current Image</button>
+                    </div>
+                </div>
+                <button id="newSessionBtn" class="btn btn-sm">
+                    New Session
+                </button>
+            </div>
+
+        </div>
+    </main>
+
+
+</div>
+
+<!-- ── Settings Dialog ──────────────────────────────────────────── -->
+<div class="modal-overlay" id="settingsOverlay">
+    <div class="modal settings-modal">
+        <div class="modal-header">
+            <h2>Settings</h2>
+            <button class="icon-btn modal-close" id="settingsClose">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="modal-tabs">
+            <button class="tab active" data-tab="model">Model</button>
+            <button class="tab" data-tab="calibration">Calibration</button>
+        </div>
+        <div class="modal-body">
+            <!-- Model tab -->
+            <div class="tab-content active" id="tab-model">
+                <div class="settings-section">
+                    <label class="settings-label">Active Model</label>
+                    <div class="model-row">
+                        <span id="modelName" class="model-name">best.pt</span>
+                    </div>
+                </div>
+                <div class="settings-section">
+                    <label class="settings-label">Upload Custom YOLO Model</label>
+                    <p class="settings-hint">Upload a .pt file trained with Ultralytics YOLOv8. The model will be validated before switching.</p>
+                    <label class="btn btn-primary upload-area">
+                        Choose .pt File
+                        <input type="file" id="modelUpload" accept=".pt" style="display:none">
+                    </label>
+                </div>
+            </div>
+            <!-- Calibration tab -->
+            <div class="tab-content" id="tab-calibration">
+                <div class="settings-section">
+                    <label class="settings-label">Hemocytometer Calibration</label>
+                    <p class="settings-hint">Standard Neubauer: 1mm grid squares, 0.1mm chamber depth. Dilution and trypan blue settings are also available on the main UI.</p>
+                </div>
+                <div class="cal-grid">
+                    <div class="cal-field">
+                        <label>Dilution factor</label>
+                        <input type="number" id="calDilution" value="1" min="1" step="1">
+                        <span class="cal-hint">Sample dilution before trypan blue</span>
+                    </div>
+                </div>
+                <div class="cal-toggle-row">
+                    <label class="toggle-label" for="calTrypanBlue">
+                        <input type="checkbox" id="calTrypanBlue" checked>
+                        <span>1:1 Trypan blue dilution</span>
+                    </label>
+                    <span class="cal-hint">Accounts for the 2x dilution from mixing equal parts sample and trypan blue</span>
+                </div>
+                <div class="cal-effective" id="calEffectiveDilution"></div>
+                <details class="cal-advanced">
+                    <summary>Advanced</summary>
+                    <div class="cal-grid" style="margin-top: 8px;">
+                        <div class="cal-field">
+                            <label>Pixels per mm</label>
+                            <input type="number" id="calPixPerMm" value="0" min="0" step="0.1">
+                            <span class="cal-hint">Auto-detected from grid. Override only if needed.</span>
+                        </div>
+                        <div class="cal-field">
+                            <label>Grid square side (mm)</label>
+                            <input type="number" id="calGridSide" value="1.0" min="0.1" step="0.1">
+                        </div>
+                    </div>
+                </details>
+                <button id="calSaveBtn" class="btn btn-primary mt-2 w-full">Save Calibration</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Help Overlay ─────────────────────────────────────────────── -->
+<div class="modal-overlay" id="helpOverlay">
+    <div class="modal help-modal">
+        <div class="modal-header">
+            <h2>Keyboard Shortcuts</h2>
+            <button class="icon-btn modal-close" onclick="document.getElementById('helpOverlay').classList.remove('visible')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="help-grid">
+                <kbd>Space</kbd><span>Capture frame from camera</span>
+                <kbd>A</kbd><span>Toggle annotation mode</span>
+                <kbd>S</kbd><span>Save current sample to session</span>
+                <kbd>E</kbd><span>Export session data</span>
+                <kbd>C</kbd><span>Start / stop camera</span>
+                <kbd>R</kbd><span>Re-analyze current image</span>
+                <kbd>N</kbd><span>New sample group</span>
+                <kbd>Z</kbd><span>Undo last annotation</span>
+                <kbd>X</kbd><span>Reset all annotations</span>
+                <kbd>+</kbd><span>Increase confidence +0.05</span>
+                <kbd>-</kbd><span>Decrease confidence -0.05</span>
+                <kbd>Tab</kbd><span>Cycle through samples</span>
+                <kbd>Esc</kbd><span>Exit annotation / close dialogs</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Toast ─────────────────────────────────────────────────────── -->
+<div class="toast" id="toast"></div>
+
+<!-- ── Scripts ───────────────────────────────────────────────────── -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="/static/js/app.js?v=10"></script>
+<script src="/static/js/camera.js?v=10"></script>
+<script src="/static/js/annotator.js?v=10"></script>
+<script src="/static/js/charts.js?v=10"></script>
+<script src="/static/js/session.js?v=10"></script>
+<script src="/static/js/shortcuts.js?v=10"></script>
+<script src="/static/js/export.js?v=10"></script>
+
+</body>
+</html>

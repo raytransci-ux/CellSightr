@@ -1,0 +1,64 @@
+<!--
+  Label Studio Labeling Interface — Hemocytometer Cell Counter
+
+  How to use:
+  1. In Label Studio, create a new project
+  2. Go to Settings > Labeling Interface > Code tab
+  3. Paste this entire XML and click Save
+
+  Labels:
+    viable      = live cell (clear, no trypan uptake)
+    non_viable  = dead cell (blue/purple trypan staining)
+    ambiguous   = uncertain viability (filter out during training)
+-->
+
+<View>
+  <!-- Main image display -->
+  <Image name="image" value="$image" zoom="true" zoomControl="true"
+         brightnessControl="true" contrastControl="true"/>
+
+  <!-- Cell bounding box labels -->
+  <Header value="Draw a box around each cell, then select its viability:"/>
+  <RectangleLabels name="cells" toName="image" strokeWidth="2" showInline="true">
+    <Label value="viable"     background="#22c55e" hotkey="1"/>
+    <Label value="non_viable" background="#3b82f6" hotkey="2"/>
+    <Label value="ambiguous"  background="#eab308" hotkey="3"/>
+  </RectangleLabels>
+
+  <!-- Per-image metadata (filled once per image, not per box) -->
+  <Header value="Image-level metadata:"/>
+
+  <View style="display: flex; gap: 20px; flex-wrap: wrap; margin-top: 8px;">
+    <View>
+      <Header value="Cell density:"/>
+      <Choices name="density" toName="image" choice="single">
+        <Choice value="empty"  />
+        <Choice value="low"    />
+        <Choice value="medium" />
+        <Choice value="high"   />
+      </Choices>
+    </View>
+
+    <View>
+      <Header value="Focus quality:"/>
+      <Choices name="focus_quality" toName="image" choice="single">
+        <Choice value="good"       />
+        <Choice value="acceptable" />
+        <Choice value="poor"       />
+      </Choices>
+    </View>
+
+    <View>
+      <Header value="Grid visible:"/>
+      <Choices name="grid_visible" toName="image" choice="single">
+        <Choice value="yes"     />
+        <Choice value="partial" />
+        <Choice value="no"      />
+      </Choices>
+    </View>
+  </View>
+
+  <!-- Notes field for edge cases -->
+  <TextArea name="notes" toName="image" placeholder="Optional notes (edge cases, unusual features)"
+            rows="2" editable="true"/>
+</View>
