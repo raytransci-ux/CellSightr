@@ -826,7 +826,7 @@ print(f"  Inference Time: {final_results['end_to_end']['inference_time']:.3f}s")
 ## Maintenance
 - **Version**: 1.0
 - **Last Updated**: 2026-02-15
-- **Contact**: [your email]
+- **Contact**: See GitHub repository
 ```
 
 **Deliverable**: Final evaluation report + model cards
