@@ -1,14 +1,14 @@
-# CellCount
+# CellSightr
 
-AI-powered hemocytometer cell counter for automated viability analysis. Upload a microscope image or connect a live camera — CellCount detects viable and non-viable cells using YOLO object detection, maps them to the hemocytometer grid, and calculates concentration in cells/mL.
+Counting cells with a hemocytometer is tedious, operator dependent, and takes valuable time away from real research! Automated approaches are gated behind a paywall and the plastic waste generated builds up quickly. CellSightr is my foray into machine learning to create a fast, repeatable app for cell counting using YOLO inference to count cells in real time, adapting to a common academia/industry workflow. CellSightr also allows exports of images and CSV files for the cell counts, giving an audit trail for GMP environments.
 
-Built for bench scientists who want fast, reproducible cell counts without manual counting.
+ML-powered hemocytometer cell counter for automated viability analysis. Upload a microscope image or connect a live camera — CellSightr detects viable and non-viable cells using YOLO object detection, counts them within an automatically detected hemocytometer grid, and calculates concentration in cells/mL.
 
 ## Features
 
 - **Live camera feed** with real-time cell detection overlay
 - **Automatic grid detection** identifies the hemocytometer counting square via Hough transform
-- **Dual-model inference** — fast nano model for live preview, accurate medium/large model for final counts
+- **Dual-model inference** — fast nano model for live preview, accurate large model for final counts
 - **Manual annotation** — add, remove, or reclassify cells with click controls
 - **Session management** — organize samples into groups, track across experiments
 - **Export** — CSV and ZIP with annotated overlay images
