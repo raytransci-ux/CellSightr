@@ -80,6 +80,12 @@ Bundles webapp code, frontend, model weights, and launch scripts (~93 MB). Exclu
 - After annotation edits and **Save**, the camera auto-restarts if it was previously live
 - **Stop** (manual) shows a black screen; the placeholder only shows before first camera use
 
+## Repository Structure
+- `webapp/` — Production app (backend + frontend)
+- `docs/` — Training guides, annotation guidelines, Label Studio config, training scripts
+- `checkpoints/` — Trained model weights (git-ignored, distributed via `build_package.py`)
+- `data/` — Training data and annotations (git-ignored)
+
 ## Dev Notes
 - Python 3.10+ required
 - `requirements.txt` is at `webapp/backend/requirements.txt`
@@ -88,3 +94,4 @@ Bundles webapp code, frontend, model weights, and launch scripts (~93 MB). Exclu
 - Grid detection can be auto (Hough lines) or manual (3-point selection)
 - The confidence threshold is adjustable at runtime (default 0.25)
 - CSS has responsive breakpoints at 800px height and 1200px/900px width for laptop screens
+- Training scripts and phase documentation are in `docs/`
