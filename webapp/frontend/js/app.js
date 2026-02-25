@@ -7,6 +7,7 @@ const App = (() => {
     // ── Global State ────────────────────────────────────────────────
     const state = {
         cameraRunning: false,
+        cameraWasRunning: false,  // track if camera was live before capture
         currentImageId: null,
         currentImageUrl: null,
         currentImageSize: null, // {width, height}
@@ -24,6 +25,7 @@ const App = (() => {
         gridSelectStart: null,    // {x, y} in image coords
         manualGrid: null,         // user-set grid override (persists across re-analyze)
         gridSelectPoints: [],     // 3-point grid selection clicks
+        liveTracking: false,      // live cell tracking on camera feed
     };
 
     // ── DOM Refs ────────────────────────────────────────────────────
@@ -384,9 +386,14 @@ const App = (() => {
     const actions = {
         async startCamera() {
             try {
-                const result = await api('POST', '/api/camera/start');
+                const deviceId = parseInt($('#cameraDeviceSelect').value) || 0;
+                const result = await api('POST', `/api/camera/start?device_id=${deviceId}`);
                 state.cameraRunning = true;
                 Camera.connect();
+                // Sync live tracking state with camera
+                if (state.liveTracking) {
+                    Camera.sendCommand({ live_tracking: true });
+                }
                 updateCameraUI(true, result.backend);
                 toast('Camera started');
             } catch (e) {
@@ -399,6 +406,12 @@ const App = (() => {
             await api('POST', '/api/camera/stop').catch(() => {});
             state.cameraRunning = false;
             updateCameraUI(false);
+            // Show black screen (clear canvas to black)
+            showCanvas();
+            fitCanvas();
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            loadedImage = null;
             toast('Camera stopped');
         },
 
@@ -410,11 +423,22 @@ const App = (() => {
         async capture() {
             if (!state.cameraRunning) return;
             try {
-                Camera.pause();
+                state.cameraWasRunning = true;
+                Camera.pause();  // pause feed while we capture
                 state.manualGrid = null;  // fresh image = fresh grid detection
+
+                // Capture frame while camera is still running on backend
                 const result = await api('POST', '/api/capture');
                 state.currentImageId = result.image_id;
                 state.currentImageUrl = result.image_url;
+
+                // Now stop the camera fully
+                Camera.disconnect();
+                await api('POST', '/api/camera/stop').catch(() => {});
+                state.cameraRunning = false;
+                updateCameraUI(false);
+
+                // Display captured image (persists on screen)
                 await loadImageFromUrl(result.image_url);
                 // Quick count with nano first
                 await actions.analyze(false);
@@ -527,14 +551,16 @@ const App = (() => {
             state.annotateMode = !state.annotateMode;
             $('#annotateToggle').checked = state.annotateMode;
             container.classList.toggle('annotating', state.annotateMode);
-            $('#annotateHint').classList.toggle('hidden', !state.annotateMode);
+            const hint = $('#annotateHint');
+            if (hint) hint.classList.toggle('hidden', !state.annotateMode);
         },
 
         setAnnotateOff() {
             state.annotateMode = false;
             $('#annotateToggle').checked = false;
             container.classList.remove('annotating');
-            $('#annotateHint').classList.add('hidden');
+            const hint = $('#annotateHint');
+            if (hint) hint.classList.add('hidden');
         },
 
         async saveSample() {
@@ -581,6 +607,12 @@ const App = (() => {
                 await Session.refresh();
                 toast(isExisting ? 'Sample updated' : `Sample #${Session.getSampleCount()} saved`);
                 $('#saveSampleBtn').disabled = true;
+
+                // Resume camera if it was running before capture
+                if (state.cameraWasRunning) {
+                    state.cameraWasRunning = false;
+                    await actions.startCamera();
+                }
             } catch (e) {
                 console.error('Save sample failed:', e);
                 toast('Failed to save sample');
@@ -652,7 +684,6 @@ const App = (() => {
                 hideCanvas();
                 updateResults(null);
                 Charts.updateViability(0, 0);
-                Charts.updateComparison([]);
                 $('#saveSampleBtn').disabled = true;
                 toast('New session started');
             } catch (e) {
@@ -849,16 +880,20 @@ const App = (() => {
         banner.classList.add(hasError ? 'severity-error' : 'severity-warning');
 
         const msgs = quality.warnings.map(w => w.message);
-        banner.innerHTML = `
-            <span class="quality-icon">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
-                    <line x1="12" y1="16" x2="12.01" y2="16"/>
-                </svg>
-            </span>
-            <span class="quality-msgs">${msgs.join(' ')}</span>
-            <button class="grid-dismiss-btn" onclick="this.parentElement.remove()">&times;</button>
-        `;
+        // Build banner using DOM methods to avoid innerHTML XSS
+        const icon = document.createElement('span');
+        icon.className = 'quality-icon';
+        icon.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+        const msgSpan = document.createElement('span');
+        msgSpan.className = 'quality-msgs';
+        msgSpan.textContent = msgs.join(' ');
+        const dismissBtn = document.createElement('button');
+        dismissBtn.className = 'grid-dismiss-btn';
+        dismissBtn.textContent = '\u00D7';
+        dismissBtn.addEventListener('click', () => banner.remove());
+        banner.appendChild(icon);
+        banner.appendChild(msgSpan);
+        banner.appendChild(dismissBtn);
         container.appendChild(banner);
 
         // Auto-dismiss after 8 seconds for warnings, persist for errors
@@ -1025,7 +1060,14 @@ const App = (() => {
         $('#annotateToggle').addEventListener('change', () => {
             state.annotateMode = $('#annotateToggle').checked;
             container.classList.toggle('annotating', state.annotateMode);
-            $('#annotateHint').classList.toggle('hidden', !state.annotateMode);
+            const hint = $('#annotateHint');
+            if (hint) hint.classList.toggle('hidden', !state.annotateMode);
+        });
+
+        // Live tracking toggle
+        $('#liveTrackToggle').addEventListener('change', () => {
+            state.liveTracking = $('#liveTrackToggle').checked;
+            Camera.sendCommand({ live_tracking: state.liveTracking });
         });
 
         // Calibration save (in settings dialog)
@@ -1165,6 +1207,20 @@ const App = (() => {
                 ? `${info.model} (live) / ${info.precise_model} (precise)`
                 : info.model;
             $('#modelName').textContent = label;
+        }).catch(() => {});
+
+        // Enumerate camera devices
+        api('GET', '/api/camera/devices').then(devices => {
+            const select = $('#cameraDeviceSelect');
+            if (devices && devices.length > 0) {
+                select.innerHTML = '';
+                devices.forEach(d => {
+                    const opt = document.createElement('option');
+                    opt.value = d.device_id;
+                    opt.textContent = `${d.name} (${d.resolution[0]}x${d.resolution[1]})`;
+                    select.appendChild(opt);
+                });
+            }
         }).catch(() => {});
     }
 

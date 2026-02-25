@@ -275,3 +275,29 @@ class CameraManager:
         except ImportError:
             pass
         return available
+
+    @staticmethod
+    def list_devices(max_devices: int = 10) -> List[Dict]:
+        """Enumerate available camera devices via OpenCV.
+
+        Returns a list of dicts with device_id and name.
+        Probes indices 0..max_devices-1 and returns those that open successfully.
+        """
+        import cv2
+
+        devices = []
+        for idx in range(max_devices):
+            cap = cv2.VideoCapture(idx, cv2.CAP_DSHOW)
+            if cap.isOpened():
+                w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                backend_name = cap.getBackendName() if hasattr(cap, 'getBackendName') else 'DirectShow'
+                devices.append({
+                    "device_id": idx,
+                    "name": f"Camera {idx} ({backend_name})",
+                    "resolution": [w, h],
+                })
+                cap.release()
+            else:
+                cap.release()
+        return devices

@@ -16,6 +16,10 @@ const Camera = (() => {
         ws.onopen = () => {
             clearTimeout(reconnectTimer);
             App.showCanvas();
+            // Sync live tracking state on connect
+            if (App.state.liveTracking) {
+                sendCommand({ live_tracking: true });
+            }
         };
 
         ws.onmessage = async (event) => {

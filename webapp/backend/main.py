@@ -2,6 +2,7 @@
 
 import asyncio
 import io
+import json
 import os
 import sys
 import uuid
@@ -10,12 +11,17 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
+import re
 import cv2
 import numpy as np
 from fastapi import FastAPI, File, UploadFile, WebSocket, WebSocketDisconnect, HTTPException, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+
+# Upload size limits
+MAX_IMAGE_SIZE = 50 * 1024 * 1024   # 50 MB
+MAX_MODEL_SIZE = 200 * 1024 * 1024  # 200 MB
 
 # Add backend dir to path for local imports
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -86,7 +92,10 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -119,6 +128,12 @@ async def camera_status():
     return app.state.camera.get_status()
 
 
+@app.get("/api/camera/devices")
+async def camera_devices():
+    """List available camera devices on the system."""
+    return app.state.camera.list_devices()
+
+
 @app.post("/api/camera/start")
 async def camera_start(device_id: int = 0, backend: Optional[str] = None):
     result = app.state.camera.start(device_id, backend)
@@ -135,9 +150,36 @@ async def camera_stop():
 
 @app.websocket("/ws/camera")
 async def camera_ws(ws: WebSocket):
-    """Stream camera frames over WebSocket as binary JPEG."""
+    """Stream camera frames over WebSocket as binary JPEG.
+
+    Supports live cell tracking: every Nth frame, run nano inference and
+    overlay detection boxes onto the stream.  The client can toggle this
+    by sending a JSON message: {"live_tracking": true/false}.
+    """
     await ws.accept()
     cam: CameraManager = app.state.camera
+    engine: InferenceEngine = app.state.engine
+    live_tracking = False
+    frame_counter = 0
+    track_interval = 5  # run inference every 5th frame (~3 fps of detections at 15 fps stream)
+    last_detections = []
+
+    async def receive_commands():
+        """Listen for client commands in background."""
+        nonlocal live_tracking
+        try:
+            while True:
+                msg = await ws.receive_text()
+                data = json.loads(msg)
+                if "live_tracking" in data:
+                    live_tracking = data["live_tracking"]
+                    last_detections.clear()
+        except Exception:
+            pass
+
+    # Start background listener for client commands
+    cmd_task = asyncio.create_task(receive_commands())
+
     try:
         while True:
             if cam.is_running:
@@ -148,6 +190,29 @@ async def camera_ws(ws: WebSocket):
                     if w > 800:
                         scale = 800 / w
                         frame = cv2.resize(frame, (800, int(h * scale)))
+                    else:
+                        scale = 1.0
+
+                    # Live tracking: run nano inference periodically
+                    if live_tracking:
+                        frame_counter += 1
+                        if frame_counter >= track_interval:
+                            frame_counter = 0
+                            try:
+                                results = engine._model(frame, conf=0.25, verbose=False)[0]
+                                last_detections.clear()
+                                for box in results.boxes:
+                                    cls_id = int(box.cls[0])
+                                    bbox = [int(v) for v in box.xyxy[0].tolist()]
+                                    last_detections.append((bbox, cls_id, float(box.conf[0])))
+                            except Exception:
+                                pass
+
+                        # Draw cached detections onto frame
+                        for bbox, cls_id, conf in last_detections:
+                            color = (72, 199, 142) if cls_id == 0 else (68, 68, 239)  # BGR
+                            cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), color, 2)
+
                     _, jpeg = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
                     await ws.send_bytes(jpeg.tobytes())
             await asyncio.sleep(0.066)  # ~15 fps
@@ -155,6 +220,8 @@ async def camera_ws(ws: WebSocket):
         pass
     except Exception:
         pass
+    finally:
+        cmd_task.cancel()
 
 
 # ── Capture ──────────────────────────────────────────────────────────────
@@ -182,17 +249,29 @@ async def capture():
     }
 
 
+# ── Security helpers ──────────────────────────────────────────────────────
+
+def _safe_path(base_dir: Path, filename: str) -> Path:
+    """Resolve a filename within base_dir and verify it doesn't escape."""
+    resolved = (base_dir / filename).resolve()
+    if not resolved.is_relative_to(base_dir.resolve()):
+        raise HTTPException(403, "Access denied")
+    return resolved
+
+
+def _sanitize_filename(name: str) -> str:
+    """Strip characters unsafe for filenames and HTTP headers."""
+    return re.sub(r'[^\w\s\-.]', '_', name).strip()
+
+
 # ── Analysis ─────────────────────────────────────────────────────────────
 
 def _find_image(image_id: str) -> Path:
     """Locate an image file by ID, trying multiple extensions."""
-    filepath = IMAGES_DIR / f"{image_id}.jpg"
-    if filepath.exists():
-        return filepath
-    for ext in [".png", ".bmp", ".tiff"]:
-        alt = IMAGES_DIR / f"{image_id}{ext}"
-        if alt.exists():
-            return alt
+    for ext in [".jpg", ".png", ".bmp", ".tiff"]:
+        filepath = _safe_path(IMAGES_DIR, f"{image_id}{ext}")
+        if filepath.exists():
+            return filepath
     raise HTTPException(404, "Image not found")
 
 
@@ -273,6 +352,8 @@ async def analyze_upload(
     filepath = IMAGES_DIR / filename
 
     content = await file.read()
+    if len(content) > MAX_IMAGE_SIZE:
+        raise HTTPException(413, f"Image too large (max {MAX_IMAGE_SIZE // 1024 // 1024} MB)")
     filepath.write_bytes(content)
 
     pipeline: AnalysisPipeline = app.state.pipeline
@@ -288,12 +369,11 @@ async def analyze_upload(
 @app.get("/api/images/{filename}")
 async def get_image(filename: str):
     """Serve a saved image, trying alternate extensions if needed."""
-    filepath = IMAGES_DIR / filename
+    filepath = _safe_path(IMAGES_DIR, filename)
     if not filepath.exists():
-        # Try without extension and search for any matching file
         stem = Path(filename).stem
         for ext in [".jpg", ".png", ".bmp", ".tiff", ".jpeg"]:
-            alt = IMAGES_DIR / f"{stem}{ext}"
+            alt = _safe_path(IMAGES_DIR, f"{stem}{ext}")
             if alt.exists():
                 filepath = alt
                 break
@@ -354,8 +434,13 @@ async def upload_model(file: UploadFile = File(...)):
     if not file.filename or not file.filename.endswith(".pt"):
         raise HTTPException(400, "File must be a .pt YOLO model")
 
-    filepath = MODELS_DIR / file.filename
+    safe_name = _sanitize_filename(Path(file.filename).name)
+    if not safe_name.endswith(".pt"):
+        raise HTTPException(400, "Invalid model filename")
+    filepath = _safe_path(MODELS_DIR, safe_name)
     content = await file.read()
+    if len(content) > MAX_MODEL_SIZE:
+        raise HTTPException(413, f"Model too large (max {MAX_MODEL_SIZE // 1024 // 1024} MB)")
     filepath.write_bytes(content)
 
     # Validate by attempting to load
@@ -368,25 +453,30 @@ async def upload_model(file: UploadFile = File(...)):
         raise HTTPException(400, f"Invalid model file: {e}")
 
     return {
-        "model": file.filename,
-        "path": str(filepath),
+        "model": safe_name,
+        "path": safe_name,
         "classes": dict(names) if names else {},
     }
 
 
 @app.post("/api/model/select")
 async def select_model(model_path: str):
-    """Switch to a different model."""
+    """Switch to a different model. Path must resolve under models/ or checkpoints/."""
+    CHECKPOINTS_DIR = PROJECT_ROOT / "checkpoints"
     path = Path(model_path)
     if not path.exists():
-        # Check in models dir
         path = MODELS_DIR / model_path
     if not path.exists():
         raise HTTPException(404, "Model file not found")
 
+    resolved = path.resolve()
+    allowed_dirs = [MODELS_DIR.resolve(), CHECKPOINTS_DIR.resolve()]
+    if not any(resolved.is_relative_to(d) for d in allowed_dirs):
+        raise HTTPException(403, "Model path not allowed")
+
     engine: InferenceEngine = app.state.engine
     try:
-        info = engine.switch_model(str(path))
+        info = engine.switch_model(str(resolved))
         return info
     except Exception as e:
         raise HTTPException(400, f"Failed to load model: {e}")
@@ -423,6 +513,14 @@ async def set_calibration(
     grid_square_side_mm: float = 1.0,
     trypan_blue_dilution: bool = True,
 ):
+    if pixels_per_mm < 0:
+        raise HTTPException(400, "pixels_per_mm must be >= 0")
+    if dilution_factor < 1:
+        raise HTTPException(400, "dilution_factor must be >= 1")
+    if squares_counted < 1:
+        raise HTTPException(400, "squares_counted must be >= 1")
+    if grid_square_side_mm <= 0:
+        raise HTTPException(400, "grid_square_side_mm must be > 0")
     sessions: SessionStore = app.state.sessions
     settings = {
         "pixels_per_mm": pixels_per_mm,
@@ -551,11 +649,12 @@ async def list_samples():
 async def export_csv():
     sessions: SessionStore = app.state.sessions
     csv_content = sessions.export_csv()
+    safe_name = _sanitize_filename(sessions.current.experiment_name) or "export"
     return StreamingResponse(
         iter([csv_content]),
         media_type="text/csv",
         headers={
-            "Content-Disposition": f"attachment; filename={sessions.current.experiment_name}.csv"
+            "Content-Disposition": f'attachment; filename="{safe_name}.csv"'
         },
     )
 
@@ -651,7 +750,7 @@ async def export_zip():
         buf,
         media_type="application/zip",
         headers={
-            "Content-Disposition": f"attachment; filename={session.experiment_name}.zip"
+            "Content-Disposition": f'attachment; filename="{_sanitize_filename(session.experiment_name) or "export"}.zip"'
         },
     )
 

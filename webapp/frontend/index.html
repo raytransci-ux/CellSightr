@@ -6,7 +6,7 @@
     <title>CellCount</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/styles.css?v=11">
+    <link rel="stylesheet" href="/static/css/styles.css?v=12">
 </head>
 <body>
 <div class="app-layout">
@@ -44,6 +44,9 @@
                         <span id="cameraStatusBadge" class="camera-status-badge disconnected">
                             <span class="dot"></span> Off
                         </span>
+                        <select id="cameraDeviceSelect" class="camera-device-select" title="Select camera device">
+                            <option value="0">Default Camera</option>
+                        </select>
                         <button id="cameraStartBtn" class="btn btn-sm btn-primary">Start Camera</button>
                         <button id="cameraStopBtn" class="btn btn-sm" disabled>Stop</button>
                     </div>
@@ -62,9 +65,13 @@
                 </div>
                 <div class="camera-bar-right">
                     <span id="canvasStatus" class="canvas-status"></span>
-                    <span id="annotateHint" class="annotate-hint hidden">
-                        L-click: viable &middot; R-click: dead &middot; Shift+click: remove &middot; Z: undo
-                    </span>
+                    <div class="annotate-toggle">
+                        <label class="toggle">
+                            <input type="checkbox" id="liveTrackToggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span class="toggle-label">Track</span>
+                    </div>
                     <button id="gridOverrideBtn" class="btn btn-sm btn-grid" title="Select grid manually">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
                         Grid
@@ -100,6 +107,10 @@
                         <span class="hint">Press <kbd>C</kbd> for camera &middot; <kbd>Space</kbd> to capture</span>
                     </div>
                     <canvas id="mainCanvas" class="hidden"></canvas>
+                </div>
+                <!-- Annotation hint (shown below canvas when annotate mode active) -->
+                <div id="annotateHint" class="annotate-hint-bar hidden">
+                    L-click: viable &middot; R-click: dead &middot; Shift+click: remove &middot; Z: undo
                 </div>
                 <!-- Shortcut hints (viewport footer) -->
                 <div class="shortcut-strip">
@@ -190,19 +201,6 @@
                         <div class="no-samples" id="noSamplesMsg">
                             No samples yet. Capture or upload an image to begin.
                         </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Comparison Chart -->
-            <div class="card">
-                <div class="card-header" data-collapsible>
-                    <span>Comparison</span>
-                    <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-                </div>
-                <div class="card-body">
-                    <div class="chart-container" style="height:100px">
-                        <canvas id="comparisonBar"></canvas>
                     </div>
                 </div>
             </div>
@@ -339,13 +337,13 @@
 
 <!-- ── Scripts ───────────────────────────────────────────────────── -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script src="/static/js/app.js?v=10"></script>
-<script src="/static/js/camera.js?v=10"></script>
-<script src="/static/js/annotator.js?v=10"></script>
-<script src="/static/js/charts.js?v=10"></script>
-<script src="/static/js/session.js?v=10"></script>
-<script src="/static/js/shortcuts.js?v=10"></script>
-<script src="/static/js/export.js?v=10"></script>
+<script src="/static/js/app.js?v=11"></script>
+<script src="/static/js/camera.js?v=11"></script>
+<script src="/static/js/annotator.js?v=11"></script>
+<script src="/static/js/charts.js?v=11"></script>
+<script src="/static/js/session.js?v=11"></script>
+<script src="/static/js/shortcuts.js?v=11"></script>
+<script src="/static/js/export.js?v=11"></script>
 
 </body>
 </html>

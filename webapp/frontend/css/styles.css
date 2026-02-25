@@ -209,13 +209,42 @@ body {
 
 .annotate-toggle { display: flex; align-items: center; gap: 6px; }
 .toggle-label { font-size: 0.75rem; color: var(--text-secondary); }
-.annotate-hint {
+
+/* Camera device selector */
+.camera-device-select {
+    padding: 3px 6px;
+    font-size: 0.6875rem;
+    font-family: 'Inter', sans-serif;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    cursor: pointer;
+    max-width: 180px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.camera-device-select:focus {
+    outline: none;
+    border-color: var(--border-focus);
+}
+.camera-device-select option {
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+}
+
+/* Annotation hint bar — sits below canvas, above shortcut strip */
+.annotate-hint-bar {
     font-size: 0.6875rem;
     color: var(--accent);
     white-space: nowrap;
-    padding: 2px 8px;
+    padding: 4px 10px;
     background: var(--accent-dim);
-    border-radius: 4px;
+    text-align: center;
+    flex-shrink: 0;
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
 }
 
 .canvas-status {
@@ -1229,6 +1258,44 @@ kbd {
 @keyframes slideUp {
     from { opacity: 0; transform: translateX(-50%) translateY(10px); }
     to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ── Responsive: laptop screens ────────────────────────────────────── */
+@media (max-height: 800px) {
+    .top-bar { height: 40px; }
+    .camera-bar { padding: 4px 8px; }
+    .card-body { padding: 8px 10px 10px; }
+    .stat-tile { padding: 4px 8px; }
+    .stat-value { font-size: 1rem; }
+    .donut-canvas-wrap { width: 72px; height: 72px; }
+    .results-meta { margin-top: 4px; }
+    .results-params { margin-top: 4px; }
+    .sample-group-bar { margin-bottom: 4px; }
+    .action-row { padding-top: 4px; }
+    .control-panel { gap: 6px; padding: 8px; }
+}
+
+@media (max-width: 1200px) {
+    .control-panel {
+        min-width: 260px;
+        max-width: 320px;
+    }
+    .camera-bar-left,
+    .camera-bar-right {
+        gap: 4px;
+    }
+    .camera-device-select {
+        max-width: 140px;
+    }
+}
+
+@media (max-width: 900px) {
+    .control-panel {
+        min-width: 220px;
+        max-width: 280px;
+    }
+    .shortcut-strip { gap: 8px; }
+    .shortcut-strip span { font-size: 0.5rem; }
 }
 
 /* ── Utility ───────────────────────────────────────────────────────── */
