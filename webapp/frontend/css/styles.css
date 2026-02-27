@@ -86,6 +86,21 @@ body {
     gap: 12px;
 }
 
+.experiment-name-wrap {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.name-edit-hint {
+    color: var(--text-muted);
+    opacity: 0.45;
+    flex-shrink: 0;
+    pointer-events: none;
+    transition: opacity var(--transition), color var(--transition);
+}
+.experiment-name-wrap:hover .name-edit-hint { opacity: 1; color: var(--text-secondary); }
+.experiment-name-wrap:focus-within .name-edit-hint { opacity: 0; }
+
 .experiment-name {
     background: transparent;
     border: 1px solid transparent;
@@ -159,18 +174,23 @@ body {
     border: 1px solid var(--border);
     border-bottom: none;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    container-type: inline-size;
+    container-name: camera-bar;
+    overflow: hidden;
 }
 
 .camera-bar-left {
     display: flex;
     align-items: center;
     gap: 6px;
+    min-width: 0;
 }
 
 .camera-bar-right {
     display: flex;
     align-items: center;
     gap: 10px;
+    flex-shrink: 0;
 }
 
 .toolbar-group {
@@ -207,8 +227,12 @@ body {
     50% { opacity: 0.4; }
 }
 
-.annotate-toggle { display: flex; align-items: center; gap: 6px; }
 .toggle-label { font-size: 0.75rem; color: var(--text-secondary); }
+.toggle-icon { flex-shrink: 0; }
+.btn-toggle { color: var(--text-secondary); }
+.btn-toggle:hover { color: var(--text-primary); border-color: var(--text-muted); }
+.btn-toggle.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+.btn-toggle.active:hover { background: var(--accent-dim); opacity: 0.85; }
 
 /* Camera device selector */
 .camera-device-select {
@@ -1296,6 +1320,18 @@ kbd {
     }
     .shortcut-strip { gap: 8px; }
     .shortcut-strip span { font-size: 0.5rem; }
+}
+
+/* ── Camera bar: icon-only mode when bar is narrow ─────────────────── */
+/* Fires based on the bar's own width, not the viewport —              */
+/* so it responds correctly regardless of panel proportions.           */
+@container camera-bar (max-width: 840px) {
+    .btn-label { display: none; }
+    .canvas-status { display: none; }
+    .camera-device-select { max-width: 90px; min-width: 40px; }
+    .camera-bar-left { gap: 3px; }
+    .camera-bar-right { gap: 6px; }
+    .toolbar-group { gap: 3px; }
 }
 
 /* ── Utility ───────────────────────────────────────────────────────── */

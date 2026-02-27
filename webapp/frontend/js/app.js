@@ -549,7 +549,7 @@ const App = (() => {
 
         toggleAnnotate() {
             state.annotateMode = !state.annotateMode;
-            $('#annotateToggle').checked = state.annotateMode;
+            $('#annotateToggle').classList.toggle('active', state.annotateMode);
             container.classList.toggle('annotating', state.annotateMode);
             const hint = $('#annotateHint');
             if (hint) hint.classList.toggle('hidden', !state.annotateMode);
@@ -557,7 +557,7 @@ const App = (() => {
 
         setAnnotateOff() {
             state.annotateMode = false;
-            $('#annotateToggle').checked = false;
+            $('#annotateToggle').classList.remove('active');
             container.classList.remove('annotating');
             const hint = $('#annotateHint');
             if (hint) hint.classList.add('hidden');
@@ -755,13 +755,13 @@ const App = (() => {
         const badge = $('#cameraStatusBadge');
         if (connected) {
             badge.className = 'camera-status-badge connected';
-            badge.innerHTML = `<span class="dot"></span> ${backend || 'Connected'}`;
+            badge.innerHTML = `<span class="dot"></span><span class="btn-label"> ${backend || 'Connected'}</span>`;
             $('#cameraStartBtn').disabled = true;
             $('#cameraStopBtn').disabled = false;
             $('#captureBtn').disabled = false;
         } else {
             badge.className = 'camera-status-badge disconnected';
-            badge.innerHTML = '<span class="dot"></span> Off';
+            badge.innerHTML = '<span class="dot"></span><span class="btn-label"> Off</span>';
             $('#cameraStartBtn').disabled = false;
             $('#cameraStopBtn').disabled = true;
             $('#captureBtn').disabled = true;
@@ -1056,17 +1056,19 @@ const App = (() => {
             e.target.value = '';
         });
 
-        // Annotate toggle
-        $('#annotateToggle').addEventListener('change', () => {
-            state.annotateMode = $('#annotateToggle').checked;
+        // Annotate button
+        $('#annotateToggle').addEventListener('click', () => {
+            state.annotateMode = !state.annotateMode;
+            $('#annotateToggle').classList.toggle('active', state.annotateMode);
             container.classList.toggle('annotating', state.annotateMode);
             const hint = $('#annotateHint');
             if (hint) hint.classList.toggle('hidden', !state.annotateMode);
         });
 
-        // Live tracking toggle
-        $('#liveTrackToggle').addEventListener('change', () => {
-            state.liveTracking = $('#liveTrackToggle').checked;
+        // Live tracking button
+        $('#liveTrackToggle').addEventListener('click', () => {
+            state.liveTracking = !state.liveTracking;
+            $('#liveTrackToggle').classList.toggle('active', state.liveTracking);
             Camera.sendCommand({ live_tracking: state.liveTracking });
         });
 
