@@ -1,5 +1,5 @@
 """
-Build a distributable CellCount package.
+Build a distributable CellSightr package.
 
 Creates a ZIP file containing everything needed to run the app on another
 machine — webapp code, frontend, model weights, and launch scripts.
@@ -10,7 +10,7 @@ pre-trained base weights (yolo*.pt in root), and other dev-only files.
 
 Usage:
     python build_package.py
-    python build_package.py --output cellcount_v1.zip
+    python build_package.py --output cellsightr_v1.zip
 """
 
 import argparse
@@ -34,6 +34,7 @@ INCLUDE = [
     "webapp/frontend/",
     # Launch scripts & docs
     "start.bat",
+    "start.ps1",
     "start.sh",
     "CLAUDE.md",
     # Model weights (trained checkpoints only — best.pt for each size)
@@ -43,7 +44,7 @@ INCLUDE = [
 ]
 
 # Default output filename
-DEFAULT_OUTPUT = "CellCount_package.zip"
+DEFAULT_OUTPUT = "CellSightr_package.zip"
 
 
 def collect_files():
@@ -64,15 +65,15 @@ def collect_files():
 
 
 def build(output_path: str):
-    print(f"Building CellCount package...")
+    print(f"Building CellSightr package...")
     print(f"  Source: {PROJECT_ROOT}")
 
     files = collect_files()
 
     with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as zf:
         for src, arcname in files:
-            # Nest under CellCount/ inside the zip
-            zf.write(str(src), f"CellCount/{arcname}")
+            # Nest under CellSightr/ inside the zip
+            zf.write(str(src), f"CellSightr/{arcname}")
             size_kb = src.stat().st_size / 1024
             label = f"{size_kb:.0f} KB" if size_kb < 1024 else f"{size_kb / 1024:.1f} MB"
             print(f"  + {arcname}  ({label})")
@@ -88,7 +89,7 @@ def build(output_path: str):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Build CellCount deployment package")
+    parser = argparse.ArgumentParser(description="Build CellSightr deployment package")
     parser.add_argument("--output", "-o", default=DEFAULT_OUTPUT, help="Output ZIP path")
     args = parser.parse_args()
     build(args.output)
